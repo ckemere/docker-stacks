@@ -1,9 +1,9 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 
-FROM jupyter/base-notebook
+FROM ckemere/base-notebook
 
-MAINTAINER Jupyter Project <jupyter@googlegroups.com>
+MAINTAINER Caleb Kemere <ckemere@gmail.com>
 
 USER root
 
@@ -31,5 +31,5 @@ RUN apt-get update && apt-get install -yq --no-install-recommends \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Switch back to jovyan to avoid accidental container runs as root
+# Switch back to nb_user to avoid accidental container runs as root
 USER $NB_USER

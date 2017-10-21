@@ -1,11 +1,10 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 
-# Ubuntu 16.04 (xenial) from 2017-07-23
-# https://github.com/docker-library/official-images/commit/0ea9b38b835ffb656c497783321632ec7f87b60c
-FROM ubuntu@sha256:84c334414e2bfdcae99509a6add166bbb4fa4041dc3fa6af08046a66fed3005f
+# Ubuntu 16.04 (xenial)
+FROM ubuntu:16.04
 
-MAINTAINER Jupyter Project <jupyter@googlegroups.com>
+MAINTAINER Caleb Kemere <ckemere@gmail.com>
 
 USER root
 
@@ -26,16 +25,16 @@ RUN apt-get update && apt-get -yq dist-upgrade \
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen
 
-# Install Tini
-RUN wget --quiet https://github.com/krallin/tini/releases/download/v0.10.0/tini && \
-    echo "1361527f39190a7338a0b434bd8c88ff7233ce7b9a4876f3315c22fce7eca1b0 *tini" | sha256sum -c - && \
-    mv tini /usr/local/bin/tini && \
-    chmod +x /usr/local/bin/tini
+# Install Tini that necessary to properly run the notebook service in docker
+# http://jupyter-notebook.readthedocs.org/en/latest/public_server.html#docker-cmd
+ENV TINI_VERSION v0.16.1
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /usr/local/bin/tini
+RUN chmod +x /usr/local/bin/tini
 
 # Configure environment
 ENV CONDA_DIR=/opt/conda \
     SHELL=/bin/bash \
-    NB_USER=jovyan \
+    NB_USER=nb_user \
     NB_UID=1000 \
     NB_GID=100 \
     LC_ALL=en_US.UTF-8 \
@@ -45,7 +44,7 @@ ENV PATH=$CONDA_DIR/bin:$PATH \
     HOME=/home/$NB_USER
 
 ADD fix-permissions /usr/local/bin/fix-permissions
-# Create jovyan user with UID=1000 and in the 'users' group
+# Create nb_user user with UID=1000 and in the 'users' group
 # and make sure these dirs are writable by the `users` group.
 RUN useradd -m -s /bin/bash -N -u $NB_UID $NB_USER && \
     mkdir -p $CONDA_DIR && \
@@ -59,11 +58,11 @@ USER $NB_USER
 RUN mkdir /home/$NB_USER/work && \
     fix-permissions /home/$NB_USER
 
-# Install conda as jovyan and check the md5 sum provided on the download site
-ENV MINICONDA_VERSION 4.3.21
+# Install conda as nb_user and check the md5 sum provided on the download site
+ENV MINICONDA_VERSION 4.3.27.1
 RUN cd /tmp && \
     wget --quiet https://repo.continuum.io/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
-    echo "c1c15d3baba15bf50293ae963abef853 *Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh" | md5sum -c - && \
+    echo "63049c871c7d426f4bc5f3dc4feb78cc *Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh" | md5sum -c - && \
     /bin/bash Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh -f -b -p $CONDA_DIR && \
     rm Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh && \
     $CONDA_DIR/bin/conda config --system --prepend channels conda-forge && \
@@ -75,9 +74,9 @@ RUN cd /tmp && \
 
 # Install Jupyter Notebook and Hub
 RUN conda install --quiet --yes \
-    'notebook=5.1.*' \
-    'jupyterhub=0.8.*' \
-    'jupyterlab=0.27.*' \
+    notebook \
+    jupyterhub \
+    jupyterlab \
     && conda clean -tipsy && \
     fix-permissions $CONDA_DIR
 
@@ -97,5 +96,5 @@ COPY start-singleuser.sh /usr/local/bin/
 COPY jupyter_notebook_config.py /etc/jupyter/
 RUN fix-permissions /etc/jupyter/
 
-# Switch back to jovyan to avoid accidental container runs as root
+# Switch back to nb_user to avoid accidental container runs as root
 USER $NB_USER
